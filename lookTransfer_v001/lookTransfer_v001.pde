@@ -11,7 +11,7 @@ String sourceChartFile = "wedge_dslr.tga";
 String destChartFile = "wedge_instax.tga";
 
 PImage subject;
-String subjectFile = "bounceHouse.png";
+String subjectFile = "jessicaPainting.png";
 PVector[] SRC_CLOUD;
 PVector[] DEST_CLOUD;
 
@@ -49,21 +49,16 @@ void setup() {
     DEST_CLOUD[i] = new PVector(x, y, z);
   }
 
-  for (int i=0; i<SRC_CLOUD.length; i++) {
-    print(i);
-    print(": ");
-    print(SRC_CLOUD[i]);
-    print(" ");
-    println(DEST_CLOUD[i]);
-  }
+  //for (int i=0; i<SRC_CLOUD.length; i++) {
+  //  print(i);
+  //  print(": ");
+  //  print(SRC_CLOUD[i]);
+  //  print(" ");
+  //  println(DEST_CLOUD[i]);
+  //}
   println("source and destination point clouds loaded.");
 
   println("setup done.");
-
-
-
-
-
 
   noLoop();
 }
@@ -73,45 +68,61 @@ PImage lookTransfer(PImage sourceImage) {
   // with the corresponding value from destChart. Return the resulting PImage.
 
   // Small for easier debugging!
-  subject.resize(3, 3);
+  //subject.resize(5, 5);
   subject.loadPixels();
 
+  PImage destImage = sourceImage;
+  destImage.loadPixels();
+
+  for (int i=0; i<sourceImage.pixels.length; i++) {
+    destImage.pixels[i] = sourceColorToDestColor(sourceImage.pixels[i]);
+  }
+  destImage.updatePixels();
+
+  return destImage;
+}
+
+color sourceColorToDestColor(color sourceColor) {
+
   float x, y, z;
+  x = red(sourceColor);
+  y = green(sourceColor);
+  z = blue(sourceColor);
+  PVector source = new PVector(x, y, z);
+  PVector dest = new PVector(-1.0, -1.0, -1.0);
 
-  //for (int i=0; i<sourceImage.pixels.length; i++) {
-  //  x = red(subject.pixels[i]);
-  //  y = green(subject.pixels[i]);
-  //  z = blue(subject.pixels[i]);
-  //  println(x, y, z);
+  Integer indexOfNearestPoint = -1;
+  Float distanceToNearestPoint = 10000.0;
 
-  //  PVector pixel = new PVector(x, y, z);
-  //  Integer indexOfNearestPoint = -1;
-  //  Float distanceToNearestPoint = 1000.0;
+  for (int i=0; i<SRC_CLOUD.length; i++) {
+    if (source.dist(SRC_CLOUD[i]) < distanceToNearestPoint) {
+      distanceToNearestPoint = source.dist(SRC_CLOUD[i]);
+      indexOfNearestPoint = i;
+      //println("found nearer: " + str(indexOfNearestPoint) + " " + str(distanceToNearestPoint));
+    }
+  }
 
-
-
-
-  //    println(pixel);
-  //    PVector distanceVector = pixel;
-  //    println(distanceVector);
-  //    distanceVector.sub(SRC_CLOUD[j]);
-  //    //println(distanceVector, distanceVector.mag());
-
-  //    if (distanceVector.mag() < distanceToNearestPoint) {
-  //      indexOfNearestPoint = j;
-  //      distanceToNearestPoint = distanceVector.mag();
-  //      //println(indexOfNearestPoint, distanceToNearestPoint);
-  //    }
-
-
-  return(sourceImage);
+  dest = DEST_CLOUD[indexOfNearestPoint];
+  color destColor = color(dest.x, dest.y, dest.z);
+  return destColor;
 }
 
 
 void draw() {
 
+  //color dest = sourceColorToDestColor(color(255, 0, 0));
+  //print("nearest color: ");
+  //print(red(dest));
+  //print(", ");
+  //print(green(dest));
+  //print(", ");
+  //print(blue(dest));
+  //println();
+  
   subject = loadImage(subjectFile); 
-
+  image(subject, 0, 0, 100, 100);
   PImage result = lookTransfer(subject);
-  image(result, 0, 0, 100, 100);
+  image(result, 100, 0, 100, 100);
+
+
 }
