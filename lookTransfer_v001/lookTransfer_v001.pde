@@ -1,8 +1,5 @@
 /**
- * LoadFile 1
- * 
- * Loads a text file that contains two numbers separated by a tab ('\t').
- * A new pair of numbers is loaded each frame and used to draw a point on the screen.
+ What a mess.
  */
 
 
@@ -91,18 +88,30 @@ color sourceColorToDestColor(color sourceColor) {
   PVector source = new PVector(x, y, z);
   PVector dest = new PVector(-1.0, -1.0, -1.0);
 
-  Integer indexOfNearestPoint = -1;
-  Float distanceToNearestPoint = 10000.0;
-
+  FloatDict distanceMap = new FloatDict();
   for (int i=0; i<SRC_CLOUD.length; i++) {
-    if (source.dist(SRC_CLOUD[i]) < distanceToNearestPoint) {
-      distanceToNearestPoint = source.dist(SRC_CLOUD[i]);
-      indexOfNearestPoint = i;
-      //println("found nearer: " + str(indexOfNearestPoint) + " " + str(distanceToNearestPoint));
-    }
+    distanceMap.set(str(i), source.dist(SRC_CLOUD[i]));
   }
+  distanceMap.sortValues();
+  //println(distanceMap);
+  //print("closest: ");
+  //print(distanceMap.keyArray()[0]);
+  //println(SRC_CLOUD[int(distanceMap.keyArray()[0])]);
+  //print("second closest: ");
+  //print(distanceMap.keyArray()[1]);
+  //println(SRC_CLOUD[int(distanceMap.keyArray()[1])]);
 
-  dest = DEST_CLOUD[indexOfNearestPoint];
+
+  color closestColor = color(DEST_CLOUD[int(distanceMap.keyArray()[0])].x,
+                             DEST_CLOUD[int(distanceMap.keyArray()[0])].y,
+                             DEST_CLOUD[int(distanceMap.keyArray()[0])].z);
+  color nextClosest = color(DEST_CLOUD[int(distanceMap.keyArray()[0])].x,
+                            DEST_CLOUD[int(distanceMap.keyArray()[0])].y,
+                            DEST_CLOUD[int(distanceMap.keyArray()[0])].z);
+                            
+  float factor = distanceMap.valueArray()[0]
+
+  dest = lerpColor(closestColor, nextClosest, factor);
   color destColor = color(dest.x, dest.y, dest.z);
   return destColor;
 }
@@ -110,19 +119,17 @@ color sourceColorToDestColor(color sourceColor) {
 
 void draw() {
 
-  //color dest = sourceColorToDestColor(color(255, 0, 0));
-  //print("nearest color: ");
-  //print(red(dest));
-  //print(", ");
-  //print(green(dest));
-  //print(", ");
-  //print(blue(dest));
-  //println();
-  
-  subject = loadImage(subjectFile); 
-  image(subject, 0, 0, 100, 100);
-  PImage result = lookTransfer(subject);
-  image(result, 100, 0, 100, 100);
+  color dest = sourceColorToDestColor(color(180, 60, 60));
+  print("nearest color: ");
+  print(red(dest));
+  print(", ");
+  print(green(dest));
+  print(", ");
+  print(blue(dest));
+  println();
 
-
+  //subject = loadImage(subjectFile); 
+  //image(subject, 0, 0, 100, 100);
+  //PImage result = lookTransfer(subject);
+  //image(result, 100, 0, 100, 100);
 }
