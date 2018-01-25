@@ -8,14 +8,14 @@ String sourceChartFile = "wedge_dslr.tga";
 String destChartFile = "wedge_instax.tga";
 
 PImage subject;
-String subjectFile = "jessicaPainting.png";
+String subjectFile = "bounceHouse.png";
 PVector[] SRC_CLOUD;
 PVector[] DEST_CLOUD;
 
 int index = 0;
 
 void setup() {
-  size(200, 200);
+  size(400, 200);
   background(0);
   stroke(255);
   frameRate(12);
@@ -65,7 +65,7 @@ PImage lookTransfer(PImage sourceImage) {
   // with the corresponding value from destChart. Return the resulting PImage.
 
   // Small for easier debugging!
-  //subject.resize(5, 5);
+  subject.resize(200, 200);
   subject.loadPixels();
 
   PImage destImage = sourceImage;
@@ -86,8 +86,8 @@ color sourceColorToDestColor(color sourceColor) {
   y = green(sourceColor);
   z = blue(sourceColor);
   PVector source = new PVector(x, y, z);
-  PVector dest = new PVector(-1.0, -1.0, -1.0);
 
+  // key is index of point in the cloud, value is distance from sourceColor
   FloatDict distanceMap = new FloatDict();
   for (int i=0; i<SRC_CLOUD.length; i++) {
     distanceMap.set(str(i), source.dist(SRC_CLOUD[i]));
@@ -102,17 +102,21 @@ color sourceColorToDestColor(color sourceColor) {
   //println(SRC_CLOUD[int(distanceMap.keyArray()[1])]);
 
 
-  color closestColor = color(DEST_CLOUD[int(distanceMap.keyArray()[0])].x,
-                             DEST_CLOUD[int(distanceMap.keyArray()[0])].y,
-                             DEST_CLOUD[int(distanceMap.keyArray()[0])].z);
-  color nextClosest = color(DEST_CLOUD[int(distanceMap.keyArray()[0])].x,
-                            DEST_CLOUD[int(distanceMap.keyArray()[0])].y,
-                            DEST_CLOUD[int(distanceMap.keyArray()[0])].z);
-                            
-  float factor = distanceMap.valueArray()[0]
+  color closestColor = color(DEST_CLOUD[int(distanceMap.keyArray()[0])].x, 
+    DEST_CLOUD[int(distanceMap.keyArray()[0])].y, 
+    DEST_CLOUD[int(distanceMap.keyArray()[0])].z);
+    //println(distanceMap.keyArray()[0]);
+  float closestDist = source.dist(SRC_CLOUD[int(distanceMap.keyArray()[0])]);
+  color nextClosest = color(DEST_CLOUD[int(distanceMap.keyArray()[1])].x, 
+    DEST_CLOUD[int(distanceMap.keyArray()[1])].y, 
+    DEST_CLOUD[int(distanceMap.keyArray()[1])].z);
+  float nextDist = source.dist(SRC_CLOUD[int(distanceMap.keyArray()[1])]);
 
-  dest = lerpColor(closestColor, nextClosest, factor);
-  color destColor = color(dest.x, dest.y, dest.z);
+  //println("closest: " + hex(closestColor) + " distance: " + str(closestDist));
+  //println("nextClosest: " + hex(nextClosest) + " distance: " + str(nextDist));
+
+  float factor = closestDist / (closestDist + nextDist);
+  color destColor = lerpColor(closestColor, nextClosest, factor);
   return destColor;
 }
 
@@ -128,8 +132,9 @@ void draw() {
   print(blue(dest));
   println();
 
-  //subject = loadImage(subjectFile); 
-  //image(subject, 0, 0, 100, 100);
-  //PImage result = lookTransfer(subject);
-  //image(result, 100, 0, 100, 100);
+  subject = loadImage(subjectFile); 
+  println("loaded subjectFile.");
+  image(subject, 0, 0, 200, 200);
+  PImage result = lookTransfer(subject);
+  image(result, 200, 0, 200, 200);
 }
