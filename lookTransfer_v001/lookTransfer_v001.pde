@@ -8,14 +8,14 @@ String sourceChartFile = "wedge_dslr.tga";
 String destChartFile = "wedge_instax.tga";
 
 PImage subject;
-String subjectFile = "bounceHouse.png";
+String subjectFile = "KodakMarcie.jpg";
 PVector[] SRC_CLOUD;
 PVector[] DEST_CLOUD;
 
 int index = 0;
 
 void setup() {
-  size(400, 200);
+  size(800, 291);
   background(0);
   stroke(255);
   frameRate(12);
@@ -65,7 +65,7 @@ PImage lookTransfer(PImage sourceImage) {
   // with the corresponding value from destChart. Return the resulting PImage.
 
   // Small for easier debugging!
-  subject.resize(200, 200);
+  //subject.resize(200, 200);
   subject.loadPixels();
 
   PImage destImage = sourceImage;
@@ -105,7 +105,7 @@ color sourceColorToDestColor(color sourceColor) {
   color closestColor = color(DEST_CLOUD[int(distanceMap.keyArray()[0])].x, 
     DEST_CLOUD[int(distanceMap.keyArray()[0])].y, 
     DEST_CLOUD[int(distanceMap.keyArray()[0])].z);
-    //println(distanceMap.keyArray()[0]);
+  //println(distanceMap.keyArray()[0]);
   float closestDist = source.dist(SRC_CLOUD[int(distanceMap.keyArray()[0])]);
   color nextClosest = color(DEST_CLOUD[int(distanceMap.keyArray()[1])].x, 
     DEST_CLOUD[int(distanceMap.keyArray()[1])].y, 
@@ -134,7 +134,7 @@ void draw() {
 
   subject = loadImage(subjectFile); 
   println("loaded subjectFile.");
-  image(subject, 0, 0, 200, 200);
+  image(subject, 0, 0);
   PImage result = lookTransfer(subject);
-  image(result, 200, 0, 200, 200);
+  image(result, 400, 0);
 }
