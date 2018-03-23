@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from colormath.color_conversions import convert_color
 from colormath.color_objects import sRGBColor, xyYColor
 from pprint import pprint
+import math
 
 macbeth_patch_names = ["Dark skin", "Light skin", "Blue sky", "Foliage", "Blue flower", "Bluish green",
 					   "Orange", "Purplish blue", "Moderate red", "Purple", "Yellow green", "Orange yellow",
@@ -31,6 +32,34 @@ def import_pointcloud(filename):
 				pixel_number += 1
 	return cloud
 
+def filter_pointcloud(pointcloud, levels=[], color_names=[]):
+
+	filtered_cloud_levels = []
+	if levels != []:
+		for point in pointcloud:
+			if point['level'] in levels:
+				filtered_cloud_levels.append(point)
+	else:
+		filtered_cloud_levels = pointcloud
+	filtered_cloud_colors = []
+	if color_names != []:
+		for point in filtered_cloud_levels:
+			if point['color name'] in color_names:
+				filtered_cloud_colors.append(point)
+	else:
+		filtered_cloud_colors = filtered_cloud_levels
+	return filtered_cloud_colors
+
+
+
+def distance(one_color, other_color):
+
+	one_x, one_y, one_z = one_color.get_value_tuple()
+	other_x, other_y, other_z = other_color.get_value_tuple()
+	dist = math.sqrt(pow((one_x - other_x), 2) +
+				     pow((one_y - other_y), 2) +
+		   			 pow((one_z - other_z), 2))
+	return dist
 
 def main():
 	# source = imread("./img/wedge_dslr.tif")
@@ -46,12 +75,27 @@ def main():
 	source_cloud = import_pointcloud("./img/wedge_dslr.tif")
 	dest_cloud = import_pointcloud("./img/wedge_instax.tif")
 
-	pprint([p for p in source_cloud if p['level'] == 3])
-	pprint([p for p in dest_cloud if p['level'] == 3])
+	# pprint([p for p in source_cloud if p['level'] == 3])
+	# pprint([p for p in dest_cloud if p['level'] == 3])
 
-	#print source_cloud[0]['color']
+	selected_colors = ['Red', 'Green', 'Blue', 'Cyan', 'Magenta', 'Yellow', 'Grey 5']
+	rgbcmyg_cloud = filter_pointcloud(source_cloud,  color_names=selected_colors)
 
+	for i, point in enumerate(rgbcmyg_cloud):
+		closest_dist = 10000
+		closest_point = {}
+		select_levels = [x for j,x in enumerate(dest_cloud) if x['level'] > 1 and x['level'] < 6 ]
+		other_points = [x for j,x in enumerate(select_levels) if j!=i]
+		for other_point in other_points:
+			dist = distance(point['color'], other_point['color'])
+			if dist < closest_dist:
+				closest_dist = dist
+				closest_point = other_point
+		print closest_dist, '\t', point['color name'], point['level'], closest_point['color name'], closest_point['level']
 
+	# for point in dest_cloud:
+	# 	if point['level'] == 0:
+	# 		print point['color']
 
 
 	# print source[0][0]
