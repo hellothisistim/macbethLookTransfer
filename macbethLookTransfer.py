@@ -5,6 +5,7 @@ from colormath.color_conversions import convert_color
 from colormath.color_objects import sRGBColor, xyYColor
 from pprint import pprint
 import math
+from copy import deepcopy
 
 macbeth_patch_names = ["Dark skin", "Light skin", "Blue sky", "Foliage", "Blue flower", "Bluish green",
 					   "Orange", "Purplish blue", "Moderate red", "Purple", "Yellow green", "Orange yellow",
@@ -147,7 +148,11 @@ def weighted_dest_color(pointcloud, color):
 	total_weight = 0
 	total_vector = (0, 0, 0)
 	for point in nearest_points:
-		total_weight += (1 / distance(color, point['source color']))
+		d = distance(color, point['source color'])
+		if d == 0:
+			return point['source color']
+		else:
+			total_weight += (1 / d)
 	for i, point in enumerate(nearest_points):
 		# calculate vector from source color to destination color
 		source = point['source color'].get_value_tuple()
@@ -163,25 +168,76 @@ def weighted_dest_color(pointcloud, color):
 	# print total_vector
 	dest_color = np.add(color.get_value_tuple(), total_vector)
 
-	return xyYColor(dest_color[0], dest_color[1], dest_color[2] )	
+	return xyYColor(dest_color[0], dest_color[1], dest_color[2])
 
 
 def main():
 
 	cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
 							  dest_file = "./img/wedge_instax.tif")
+	# cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
+	# 						  dest_file = "./img/wedge_dslr.tif")
 
 	source_image = imread("./img/KodakMarcie.jpg")
 
-	selected_colors = ['Red', 'Green', 'Blue', 'Cyan', 'Magenta', 'Yellow', 'Neutral 5']
-	selected_cloud = filter_pointcloud(cloud,  color_names=selected_colors)
-	dedup = filter_duplicate_source_points(selected_cloud)
+	# selected_colors = ['Red', 'Green', 'Blue', 'Cyan', 'Magenta', 'Yellow', 'Neutral 5']
+	# selected_cloud = filter_pointcloud(cloud,  color_names=selected_colors)
+	# dedup = filter_duplicate_source_points(selected_cloud)
 
-	target_srgb = sRGBColor(127, 127, 127, is_upscaled=True)
-	target = convert_color(target_srgb, xyYColor)
-	print 'target:', target
-	# pprint( closest_in_each_octant(dedup, target) )
-	print 'dest:', weighted_dest_color(dedup, target)
+	dedup = filter_duplicate_source_points(cloud)
+
+	dest_image = deepcopy(source_image)
+	error_collection = deepcopy(dest_image)
+	for row_number in range(len(error_collection)):
+		for column_number in range(len(error_collection[0])):
+			for channel_number in range(len(error_collection[0][0])):
+				error_collection[row_number][column_number][channel_number] = 0
+
+	for row_number in range(len(dest_image)):
+		print 'row:', row_number
+		for column_number in range(len(dest_image[0])):
+				raw_rgb = source_image[row_number][column_number]
+				srgb = sRGBColor(raw_rgb[0], raw_rgb[1], raw_rgb[2], is_upscaled=True)
+				xyy = convert_color(srgb, xyYColor)
+				dest_xyy = weighted_dest_color(dedup, xyy)
+				dest_srgb = convert_color(dest_xyy, sRGBColor)
+				r,g,b = np.add(dest_srgb.get_value_tuple(), error_collection[row_number][column_number])
+				upscaled_srgb = sRGBColor(r, g, b).get_upscaled_value_tuple()
+				dest_image[row_number][column_number] = upscaled_srgb
+				rounded_srgb = sRGBColor(upscaled_srgb[0], upscaled_srgb[1], upscaled_srgb[2], is_upscaled=True)
+				rounding_error = np.subtract(dest_srgb.get_value_tuple(), rounded_srgb.get_value_tuple())
+				# do Floyd-Steinberg dither
+				# over
+				try:
+					error_collection[row_number][column_number + 1] += np.multiply(rounding_error, (7/16))
+				except IndexError:
+					pass # It's the end of the line, don't worry about it.
+				# down and back
+				try:
+					error_collection[row_number + 1][column_number - 1] += np.multiply(rounding_error, (3/16))
+				except IndexError:
+					pass
+				# down
+				try:
+					error_collection[row_number + 1][column_number ] += np.multiply(rounding_error, (5/16))
+				except IndexError:
+					pass
+				# down and over
+				try:
+					error_collection[row_number + 1][column_number + 1] += np.multiply(rounding_error, (1/16))
+				except IndexError:
+					pass
+				dest_image[row_number][column_number] = upscaled_srgb
+
+
+
+
+	plt.figure(1)
+	plt.subplot(121)
+	plt.imshow(source_image, interpolation='nearest')
+	plt.subplot(122)
+	plt.imshow(dest_image, interpolation='nearest')	
+	plt.show()
 
 
 if __name__ == "__main__":
