@@ -88,51 +88,100 @@ def distance(one_color, other_color):
 		   			 pow((one_z - other_z), 2))
 	return dist
 
+def closest(cloud, color, mode='source color'):
+	# cloud is the pointcloud list, color is colormath.color_objects
+	# mode is either "source color" or "dest color"
+
+	smallest_distance_so_far = 10000
+	for point in cloud:
+		d = distance(color, point[mode])
+		if d < smallest_distance_so_far:
+			smallest_distance_so_far = d
+			closest = point
+	return closest
+
+def octant_split(pointcloud, color):
+	# Divide the pointcloud into octants around the given color, 
+	# which is an instance from colormath.color_objects
+	# Do not return empty octants.
+
+	labeled_points = []
+	color_tuple = color.get_value_tuple()
+	for point in pointcloud:
+		labeled_point = {'point': point}
+		point_tuple = point['source color'].get_value_tuple()
+		if point_tuple[0] >= color_tuple[0]:
+			labeled_point['x_dir'] = '+'
+		else:
+			labeled_point['x_dir'] = '-'
+		if point_tuple[1] >= color_tuple[1]:
+			labeled_point['y_dir'] = '+'
+		else:
+			labeled_point['y_dir'] = '-'
+		if point_tuple[2] >= color_tuple[2]:
+			labeled_point['z_dir'] = '+'
+		else:
+			labeled_point['z_dir'] = '-'
+		labeled_points.append(labeled_point)
+
+	octants = [('+', '+', '+'), ('-', '+', '+'), ('-', '-', '+'), 
+			   ('+', '-', '+'), ('+', '+', '-'), ('-', '+', '-'), 
+			   ('-', '-', '-'), ('+', '-', '-'), ]
+	split_octants = []
+	for octant in octants:
+		split_octants.append([labeled_point['point'] for labeled_point in labeled_points if (labeled_point['x_dir'], labeled_point['y_dir'], labeled_point['z_dir']) == octant])
+	# remove empty octants
+	out = tuple( [octant for octant in split_octants if octant != []] )
+
+	return out
+
+def closest_in_each_octant(pointcloud, color):
+
+	octants = octant_split(pointcloud, color)
+	out = [closest(i, color) for i in octants]
+	return tuple(out)
+
+def weighted_dest_color(pointcloud, color):
+
+	nearest_points = closest_in_each_octant(pointcloud, color)
+	total_weight = 0
+	total_vector = (0, 0, 0)
+	for point in nearest_points:
+		total_weight += (1 / distance(color, point['source color']))
+	for i, point in enumerate(nearest_points):
+		# calculate vector from source color to destination color
+		source = point['source color'].get_value_tuple()
+		dest = point['dest color'].get_value_tuple()
+		vector = np.subtract(dest, source)
+		# weight vector and normalize
+		weight = (1 / distance(color, point['source color'])) / total_weight
+		# print 'distance:', distance(color, point['source color']), 'inverted:', 1/distance(color, point['source color']), 'weight:', weight
+		# print vector
+		weighted_vector = [ n * weight for n in vector]
+		# print weighted_vector
+		total_vector = np.add(total_vector, weighted_vector)
+	# print total_vector
+	dest_color = np.add(color.get_value_tuple(), total_vector)
+
+	return xyYColor(dest_color[0], dest_color[1], dest_color[2] )	
+
+
 def main():
-	# source = imread("./img/wedge_dslr.tif")
-	# dest = imread("./img/wedge_instax.tif")
-
-	#print source.dtype, source.shape
-
-
-	# source_greys = source[3:4, 0:48]
-	# source_levels = np.hsplit(source, 8)
-	#plt.imshow(source, interpolation='nearest')
 
 	cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
 							  dest_file = "./img/wedge_instax.tif")
 
-	selected_colors = ['Red', 'Green', 'Blue', 'Cyan', 'Magenta', 'Yellow', 'Neutral 5', 'Black', 'White']
-	selected_colors = ['Black', 'White', 'Neutral 5']
+	source_image = imread("./img/KodakMarcie.jpg")
+
+	selected_colors = ['Red', 'Green', 'Blue', 'Cyan', 'Magenta', 'Yellow', 'Neutral 5']
 	selected_cloud = filter_pointcloud(cloud,  color_names=selected_colors)
 	dedup = filter_duplicate_source_points(selected_cloud)
-	for point in dedup:
-		print point['level'], '\t', point['color name']
 
-	# for point in dest_cloud:
-	# 	if point['level'] == 0:
-	# 		print point['color']
-
-
-	# print source[0][0]
-	# srgb = sRGBColor(source[0][0][0], source[0][0][2], source[0][0][2], is_upscaled=True)
-	# print srgb
-	# xyy = convert_color(srgb, xyYColor)
-	# print xyy
-
-	# 	plt.subplot(3, 3, i+1)
-	# 	plt.imshow(level, interpolation='nearest')
-	# plt.show()
-
-
-
-	# s = sorted(source_greys)
-
-	# for i in range(len(source_greys)):
-	# 	print "starting a line"
-	# 	line = source_greys[i]
-	# 	for j in range(len(line)):
-	# 		print source_greys[i][j], " ", s[i][j]
+	target_srgb = sRGBColor(127, 127, 127, is_upscaled=True)
+	target = convert_color(target_srgb, xyYColor)
+	print 'target:', target
+	# pprint( closest_in_each_octant(dedup, target) )
+	print 'dest:', weighted_dest_color(dedup, target)
 
 
 if __name__ == "__main__":
