@@ -1,8 +1,8 @@
 import numpy as np
-from scipy.misc import imread
+from scipy.misc import imread, imsave
 import matplotlib.pyplot as plt
 from colormath.color_conversions import convert_color
-from colormath.color_objects import sRGBColor, xyYColor
+from colormath.color_objects import sRGBColor, XYZColor
 from pprint import pprint
 import math
 from copy import deepcopy
@@ -38,12 +38,12 @@ def import_pointcloud(source_file='', dest_file=''):
 				dest_b = dest_pixel[2]
 				source_srgb = sRGBColor(source_r, source_g, source_b, is_upscaled=True)
 				dest_srgb = sRGBColor(dest_r, dest_g, dest_b, is_upscaled=True)
-				source_xyy = convert_color(source_srgb, xyYColor)
-				dest_xyy = convert_color(dest_srgb, xyYColor)
+				source_xyz = convert_color(source_srgb, XYZColor)
+				dest_xyz = convert_color(dest_srgb, XYZColor)
 				cloud.append({'level': level_num,
 									 'color name': macbeth_patch_names[pixel_number],
-									 'source color': source_xyy,
-									 'dest color': dest_xyy })
+									 'source color': source_xyz,
+									 'dest color': dest_xyz })
 				pixel_number += 1
 	return cloud
 
@@ -65,7 +65,7 @@ def filter_pointcloud(pointcloud, levels=[], color_names=[]):
 		filtered_cloud_colors = filtered_cloud_levels
 	return filtered_cloud_colors
 
-def filter_duplicate_source_points(pointcloud):
+def filter_duplicate_source_points_dumb(pointcloud):
 
 	filtered_cloud = []
 	for i, point in enumerate(pointcloud):
@@ -78,6 +78,39 @@ def filter_duplicate_source_points(pointcloud):
 			filtered_cloud.append(point)
 
 	return filtered_cloud
+
+def pointcloud_contains_source_duplicates(pointcloud):
+	for i, point in enumerate(pointcloud):
+		other_points = [x for j,x in enumerate(pointcloud) if j != i]
+		for other_point in other_points:
+			if point['source color'].get_value_tuple() == other_point['source color'].get_value_tuple():
+				return True
+	return False
+
+def filter_duplicate_source_points_per_level(pointcloud):
+	# Removes the entire level if there are duplicate source colors in the level.
+	filtered_cloud = []
+	levels = []
+	for point in pointcloud:
+		if point['level'] not in levels:
+			levels.append(point['level'])
+	for i, level in enumerate(levels):
+		these_points = filter_pointcloud(pointcloud, levels=[i])
+		if not pointcloud_contains_source_duplicates(these_points):
+			for point in these_points:
+				filtered_cloud.append(point)
+		else:
+			# print 'dropping level', i
+			pass
+	return filtered_cloud
+
+def filter_duplicate_source_points_smart(pointcloud):
+	filtered_cloud = filter_duplicate_source_points_per_level(pointcloud)
+	filtered_cloud = filter_duplicate_source_points_dumb(filtered_cloud)
+	return filtered_cloud
+
+def filter_duplicate_source_points(pointcloud):
+	return filter_duplicate_source_points_smart(pointcloud)
 
 def distance(one_color, other_color):
 	# Colors are colormath.color_objects.
@@ -167,70 +200,90 @@ def weighted_dest_color(pointcloud, color):
 		total_vector = np.add(total_vector, weighted_vector)
 	# print total_vector
 	dest_color = np.add(color.get_value_tuple(), total_vector)
+	typ = type(color)
+	return typ(dest_color[0], dest_color[1], dest_color[2], observer=color.observer, illuminant=color.illuminant)
 
-	return xyYColor(dest_color[0], dest_color[1], dest_color[2])
+
+def image_to_dest(pointcloud, image, dither_error=True):
+
+	dest_image = np.zeros(image.shape, dtype="uint8")
+	error_collection = np.zeros(image.shape)
+
+	for row_number in range(len(image)):
+		# print 'row:', row_number
+		for column_number in range(len(image[0])):
+				raw_rgb = image[row_number][column_number]
+				srgb = sRGBColor(raw_rgb[0], raw_rgb[1], raw_rgb[2], is_upscaled=True)
+				xyz = convert_color(srgb, XYZColor)
+				dest_xyz = weighted_dest_color(pointcloud, xyz)
+				dest_srgb = convert_color(dest_xyz, sRGBColor)
+				if dither_error:
+					r,g,b = np.add(dest_srgb.get_value_tuple(), error_collection[row_number][column_number])
+				else:
+					r,g,b = dest_srgb.get_value_tuple()
+				# print 'xxx', dest_srgb, r, g, b
+				# print dest_srgb.get_value_tuple()
+				# print error_collection[row_number][column_number]
+				upscaled_srgb = sRGBColor(r, g, b).get_upscaled_value_tuple()
+				dest_image[row_number][column_number] = upscaled_srgb
+				if dither_error:
+					rounded_srgb = sRGBColor(upscaled_srgb[0], upscaled_srgb[1], upscaled_srgb[2], is_upscaled=True)
+					rounding_error = np.subtract(dest_srgb.get_value_tuple(), rounded_srgb.get_value_tuple())
+					# do Floyd-Steinberg dither
+					# over
+					try:
+						error_collection[row_number][column_number + 1] += rounding_error * 7 / 16
+					except IndexError:
+						pass # It's the end of the line, don't worry about it.
+					# down and back
+					try:
+						error_collection[row_number + 1][column_number - 1] += rounding_error * 3 / 16
+					except IndexError:
+						pass
+					# down
+					try:
+						error_collection[row_number + 1][column_number] += rounding_error * 5 / 16
+					except IndexError:
+						pass
+					# down and over
+					try:
+						error_collection[row_number + 1][column_number + 1] += rounding_error * 1 / 16
+					except IndexError:
+						pass
+				dest_image[row_number][column_number] = upscaled_srgb
+				# print dest_image[row_number][column_number], raw_rgb, upscaled_srgb
+
+	# print "error collection:\n", error_collection
+	return dest_image
 
 
-def main():
+
+
+if __name__ == "__main__":
+
+	import checks
+	checks.run()
 
 	cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
-							  dest_file = "./img/wedge_instax.tif")
+							  dest_file = "./img/wedge_instax-tweaked2.tif")
 	# cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
 	# 						  dest_file = "./img/wedge_dslr.tif")
 
-	source_image = imread("./img/KodakMarcie.jpg")
-
-	# selected_colors = ['Red', 'Green', 'Blue', 'Cyan', 'Magenta', 'Yellow', 'Neutral 5']
-	# selected_cloud = filter_pointcloud(cloud,  color_names=selected_colors)
-	# dedup = filter_duplicate_source_points(selected_cloud)
-
-	dedup = filter_duplicate_source_points(cloud)
-
-	dest_image = deepcopy(source_image)
-	error_collection = deepcopy(dest_image)
-	for row_number in range(len(error_collection)):
-		for column_number in range(len(error_collection[0])):
-			for channel_number in range(len(error_collection[0][0])):
-				error_collection[row_number][column_number][channel_number] = 0
-
-	for row_number in range(len(dest_image)):
-		print 'row:', row_number
-		for column_number in range(len(dest_image[0])):
-				raw_rgb = source_image[row_number][column_number]
-				srgb = sRGBColor(raw_rgb[0], raw_rgb[1], raw_rgb[2], is_upscaled=True)
-				xyy = convert_color(srgb, xyYColor)
-				dest_xyy = weighted_dest_color(dedup, xyy)
-				dest_srgb = convert_color(dest_xyy, sRGBColor)
-				r,g,b = np.add(dest_srgb.get_value_tuple(), error_collection[row_number][column_number])
-				upscaled_srgb = sRGBColor(r, g, b).get_upscaled_value_tuple()
-				dest_image[row_number][column_number] = upscaled_srgb
-				rounded_srgb = sRGBColor(upscaled_srgb[0], upscaled_srgb[1], upscaled_srgb[2], is_upscaled=True)
-				rounding_error = np.subtract(dest_srgb.get_value_tuple(), rounded_srgb.get_value_tuple())
-				# do Floyd-Steinberg dither
-				# over
-				try:
-					error_collection[row_number][column_number + 1] += np.multiply(rounding_error, (7/16))
-				except IndexError:
-					pass # It's the end of the line, don't worry about it.
-				# down and back
-				try:
-					error_collection[row_number + 1][column_number - 1] += np.multiply(rounding_error, (3/16))
-				except IndexError:
-					pass
-				# down
-				try:
-					error_collection[row_number + 1][column_number ] += np.multiply(rounding_error, (5/16))
-				except IndexError:
-					pass
-				# down and over
-				try:
-					error_collection[row_number + 1][column_number + 1] += np.multiply(rounding_error, (1/16))
-				except IndexError:
-					pass
-				dest_image[row_number][column_number] = upscaled_srgb
+	selected_colors = ['Red', 'Green', 'Blue', 'Cyan', 'Magenta', 'Yellow', 'Neutral 5']
+	selected_colors = ["White", "Neutral 8", "Neutral 6.5", "Neutral 5", "Neutral 3.5", "Black"]
+	# selected_colors = macbeth_patch_names
+	selected_cloud = filter_pointcloud(cloud,  color_names=selected_colors)
+	dedup = filter_duplicate_source_points(selected_cloud)
+	# dedup = filter_duplicate_source_points(cloud)
 
 
 
+	source_image = imread("./img/noah.tif")
+	dest_image = image_to_dest(dedup, source_image, dither_error=False)
+	print type(source_image)
+	print type(dest_image)
+
+	# imsave("./out.jpg", source_image)
 
 	plt.figure(1)
 	plt.subplot(121)
@@ -239,7 +292,4 @@ def main():
 	plt.imshow(dest_image, interpolation='nearest')	
 	plt.show()
 
-
-if __name__ == "__main__":
-    main()
 
