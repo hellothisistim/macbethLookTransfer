@@ -265,31 +265,47 @@ if __name__ == "__main__":
 	checks.run()
 
 	cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
-							  dest_file = "./img/wedge_instax-tweaked2.tif")
+							  dest_file = "./img/wedge_instax.tif")
 	# cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
 	# 						  dest_file = "./img/wedge_dslr.tif")
 
 	selected_colors = ['Red', 'Green', 'Blue', 'Cyan', 'Magenta', 'Yellow', 'Neutral 5']
-	selected_colors = ["White", "Neutral 8", "Neutral 6.5", "Neutral 5", "Neutral 3.5", "Black"]
+	# selected_colors = ["White", "Neutral 8", "Neutral 6.5", "Neutral 5", "Neutral 3.5", "Black"]
 	# selected_colors = macbeth_patch_names
 	selected_cloud = filter_pointcloud(cloud,  color_names=selected_colors)
 	dedup = filter_duplicate_source_points(selected_cloud)
-	# dedup = filter_duplicate_source_points(cloud)
 
 
 
-	source_image = imread("./img/noah.tif")
-	dest_image = image_to_dest(dedup, source_image, dither_error=False)
-	print type(source_image)
-	print type(dest_image)
+	source_image = imread("./img/lego.jpg")
+	dest_image = image_to_dest(dedup, source_image, dither_error=True)
 
-	# imsave("./out.jpg", source_image)
+	cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
+							  dest_file = "./img/wedge_instax-tweaked2.tif")
+	dedup = filter_duplicate_source_points(cloud)
+	dest_two = image_to_dest(dedup, source_image, dither_error=True)
+
+	# imsave("./out.jpg", dest_image)
 
 	plt.figure(1)
-	plt.subplot(121)
+	plt.subplot(221)
 	plt.imshow(source_image, interpolation='nearest')
-	plt.subplot(122)
-	plt.imshow(dest_image, interpolation='nearest')	
+	plt.title('original')
+	plt.subplot(222)
+	plt.imshow(dest_image, interpolation='nearest')
+	plt.title('wedge-instax')
+	plt.subplot(223)
+	plt.imshow(dest_two, interpolation='nearest')
+	plt.title('wedge-instax-tweaked2')
+	plt.subplot(224)
+
+	cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
+							  dest_file = "./img/wedge_dslr.tif")
+	dedup = filter_duplicate_source_points(cloud)
+	dest_two = image_to_dest(dedup, source_image, dither_error=True)
+
+	plt.imshow(dest_two, interpolation='nearest')
+	plt.title('wedge_dslr')
 	plt.show()
 
 
