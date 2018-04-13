@@ -5,7 +5,7 @@ from colormath.color_objects import sRGBColor, XYZColor
 
 
 def check_weighted_dest_color():
-	print "Checking check_weighted_dest_color"
+	# print "Checking check_weighted_dest_color"
 	cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
 							  dest_file = "./img/wedge_dslr.tif")
 	cloud = filter_duplicate_source_points(cloud)
@@ -21,11 +21,11 @@ def check_weighted_dest_color():
 				assert nr == r
 				assert ng == g
 				assert nb == b
-	print "\tPassed."
+	# print "\tPassed."
 
 
 def check_image_to_dest_no_dither():
-	print "Checking check_image_to_dest_no_dither"
+	# print "Checking check_image_to_dest_no_dither"
 	cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
 							  dest_file = "./img/wedge_dslr.tif")
 	cloud = filter_duplicate_source_points(cloud)
@@ -37,11 +37,11 @@ def check_image_to_dest_no_dither():
 		for column_number in range(len(source_image[0])):
 			for channel in range(len(source_image[0][0])):
 				assert source_image[row_number][column_number][channel] == dest_image[row_number][column_number][channel]
-	print "\tPassed."
+	# print "\tPassed."
 
 
 def check_image_to_dest_dither():
-	print "Checking check_image_to_dest_dither"
+	# print "Checking check_image_to_dest_dither"
 	cloud = import_pointcloud(source_file = "./img/wedge_dslr.tif",
 							  dest_file = "./img/wedge_dslr.tif")
 	cloud = filter_duplicate_source_points(cloud)
@@ -53,7 +53,7 @@ def check_image_to_dest_dither():
 		for column_number in range(len(source_image[0])):
 			for channel in range(len(source_image[0][0])):
 				assert source_image[row_number][column_number][channel] == dest_image[row_number][column_number][channel]
-	print "\tPassed."
+	# print "\tPassed."
 
 
 
